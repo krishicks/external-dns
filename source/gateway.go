@@ -425,16 +425,14 @@ func (c *gatewayRouteResolver) resolve(rt gatewayRoute) (map[string]endpoint.Tar
 		// Match the Route to all possible Listeners.
 		match := false
 		section := sectionVal(refGateway.SectionName, "")
-		listeners := gw.listeners[section]
-
-		// If ListenerSet, get its Listeners for the section and merge into Gateway listeners.
+		var listeners []v1.Listener
 		if isListenerSet {
 			lsListeners, ok := lsEntry.listeners[section]
 			if !ok {
 				log.Debugf("XListenerSet %s/%s has no listeners for section %q for %s %s/%s", refRouteNamespace, refRoute.Name, section, c.src.rtKind, meta.Namespace, meta.Name)
 				continue
 			}
-			lsListenersv1 := make([]v1.Listener, len(lsListeners))
+			listeners = make([]v1.Listener, len(lsListeners))
 			for i, lis := range lsListeners {
 				v1listener := v1.Listener{
 					Name:     lis.Name,
@@ -450,10 +448,11 @@ func (c *gatewayRouteResolver) resolve(rt gatewayRoute) (map[string]endpoint.Tar
 				if lis.AllowedRoutes != nil {
 					v1listener.AllowedRoutes = lis.AllowedRoutes
 				}
-				lsListenersv1[i] = v1listener
+				listeners[i] = v1listener
 			}
-			log.Debugf("Appending %d XListenerSet listeners to Gateway %s/%s", len(lsListenersv1), refGatewayNamespace, refGateway.Name)
-			listeners = append(listeners, lsListenersv1...)
+			log.Debugf("Using %d XListenerSet listeners from %s/%s for Gateway %s/%s", len(listeners), refRouteNamespace, refRoute.Name, refGatewayNamespace, refGateway.Name)
+		} else {
+			listeners = gw.listeners[section]
 		}
 
 		for i := range listeners {
@@ -467,7 +466,7 @@ func (c *gatewayRouteResolver) resolve(rt gatewayRoute) (map[string]endpoint.Tar
 			if refRoute.Port != nil && *refRoute.Port != lis.Port {
 				continue
 			}
-			// Confirm that the Listener allows the Route (based on namespace and kind).
+			// Confirm that the Route is allowed (based on namespace and kind).
 			if !c.gwRouteIsAllowed(gw.gateway, lis, rt) && !c.lsRouteIsAllowed(listenerSetRoute, lis, rt) {
 				continue
 			}

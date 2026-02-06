@@ -1817,6 +1817,56 @@ func TestGatewayHTTPRouteSourceEndpoints(t *testing.T) {
 				newTestEndpoint("port80.example.internal", "A", "1.2.3.4"),
 			},
 		},
+		{
+			title: "XListenerSetRouteMatching",
+			config: Config{
+				GatewayEnableExperimental: true,
+			},
+			namespaces: namespaces("default"),
+			gateways: []*v1beta1.Gateway{{
+				ObjectMeta: objectMeta("default", "lsgateway"),
+				Spec: v1.GatewaySpec{
+					Listeners: []v1.Listener{{
+						Name:          "gw-listener",
+						Protocol:      v1.HTTPProtocolType,
+						Hostname:      ptr[v1.Hostname]("gateway-only.example.internal"),
+						AllowedRoutes: allowAllNamespaces,
+					}},
+				},
+				Status: gatewayStatus("1.2.3.4"),
+			}},
+			listenerSets: []*v1alpha1.XListenerSet{{
+				ObjectMeta: objectMeta("default", "test"),
+				Spec: v1alpha1.ListenerSetSpec{
+					ParentRef: lsGwParentRef("default", "lsgateway"),
+					Listeners: []v1alpha1.ListenerEntry{
+						{
+							Name:          "ls-listener",
+							Protocol:      v1.HTTPProtocolType,
+							Hostname:      ptr[v1.Hostname]("ls-only.example.internal"),
+							AllowedRoutes: allowAllNamespaces,
+						},
+					},
+				},
+			}},
+			routes: []*v1beta1.HTTPRoute{{
+				ObjectMeta: objectMeta("default", "lstestroute"),
+				Spec: v1.HTTPRouteSpec{
+					Hostnames: hostnames("gateway-only.example.internal", "ls-only.example.internal"),
+					CommonRouteSpec: v1.CommonRouteSpec{
+						ParentRefs: []v1.ParentReference{
+							lsParentRef("default", "test"),
+						},
+					},
+				},
+				Status: httpRouteStatus(
+					lsParentRef("default", "test"),
+				),
+			}},
+			endpoints: []*endpoint.Endpoint{
+				newTestEndpoint("ls-only.example.internal", "A", "1.2.3.4"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {
