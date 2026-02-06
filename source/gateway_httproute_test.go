@@ -1761,6 +1761,62 @@ func TestGatewayHTTPRouteSourceEndpoints(t *testing.T) {
 			}},
 			endpoints: []*endpoint.Endpoint{},
 		},
+		{
+			title: "XListenerSetPortFilter",
+			config: Config{
+				GatewayEnableExperimental: true,
+			},
+			namespaces: namespaces("default"),
+			gateways: []*v1beta1.Gateway{{
+				ObjectMeta: objectMeta("default", "lsgateway"),
+				Spec: v1.GatewaySpec{
+					Listeners: []v1.Listener{{
+						Name:     "gw-listener",
+						Protocol: v1.HTTPProtocolType,
+					}},
+				},
+				Status: gatewayStatus("1.2.3.4"),
+			}},
+			listenerSets: []*v1alpha1.XListenerSet{{
+				ObjectMeta: objectMeta("default", "test"),
+				Spec: v1alpha1.ListenerSetSpec{
+					ParentRef: lsGwParentRef("default", "lsgateway"),
+					Listeners: []v1alpha1.ListenerEntry{
+						{
+							Name:          "port80",
+							Protocol:      v1.HTTPProtocolType,
+							Hostname:      ptr[v1.Hostname]("port80.example.internal"),
+							Port:          80,
+							AllowedRoutes: allowAllNamespaces,
+						},
+						{
+							Name:          "port8080",
+							Protocol:      v1.HTTPProtocolType,
+							Hostname:      ptr[v1.Hostname]("port8080.example.internal"),
+							Port:          8080,
+							AllowedRoutes: allowAllNamespaces,
+						},
+					},
+				},
+			}},
+			routes: []*v1beta1.HTTPRoute{{
+				ObjectMeta: objectMeta("default", "lstestroute"),
+				Spec: v1.HTTPRouteSpec{
+					Hostnames: hostnames("*.example.internal"),
+					CommonRouteSpec: v1.CommonRouteSpec{
+						ParentRefs: []v1.ParentReference{
+							lsParentRef("default", "test", withPortNumber(80)),
+						},
+					},
+				},
+				Status: httpRouteStatus(
+					lsParentRef("default", "test", withPortNumber(80)),
+				),
+			}},
+			endpoints: []*endpoint.Endpoint{
+				newTestEndpoint("port80.example.internal", "A", "1.2.3.4"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.title, func(t *testing.T) {

@@ -464,7 +464,7 @@ func (c *gatewayRouteResolver) resolve(rt gatewayRoute) (map[string]endpoint.Tar
 			}
 			// Confirm that the Listener and Route ports match, if specified.
 			// EXPERIMENTAL: https://gateway-api.sigs.k8s.io/geps/gep-957/
-			if refGateway.Port != nil && *refGateway.Port != lis.Port {
+			if refRoute.Port != nil && *refRoute.Port != lis.Port {
 				continue
 			}
 			// Confirm that the Listener allows the Route (based on namespace and kind).
