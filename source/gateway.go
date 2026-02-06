@@ -424,7 +424,7 @@ func (c *gatewayRouteResolver) resolve(rt gatewayRoute) (map[string]endpoint.Tar
 
 		// Match the Route to all possible Listeners.
 		match := false
-		section := sectionVal(refGateway.SectionName, "")
+		section := sectionVal(refRoute.SectionName, "")
 		var listeners []v1.Listener
 		if isListenerSet {
 			lsListeners, ok := lsEntry.listeners[section]
