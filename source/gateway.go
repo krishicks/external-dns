@@ -653,7 +653,7 @@ func (c *gatewayRouteResolver) lsRouteIsAllowed(ls *v1alpha1.XListenerSet, lis *
 
 // Test whether a route parent reference is of the given group and kind.
 func routeParentRefIsType(ref v1.ParentReference, group, kind string) bool {
-	return strVal((*string)(ref.Group), "") == group && strVal((*string)(ref.Kind), "") == kind
+	return strVal((*string)(ref.Group), gatewayGroup) == group && strVal((*string)(ref.Kind), gatewayKind) == kind
 }
 
 func gwRouteHasParentRef(routeParentRefs []v1.ParentReference, ref v1.ParentReference, meta *metav1.ObjectMeta) bool {
