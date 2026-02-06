@@ -379,26 +379,29 @@ func (c *gatewayRouteResolver) resolve(rt gatewayRoute) (map[string]endpoint.Tar
 		refGateway := refRoute
 		refGatewayNamespace := refRouteNamespace
 		var listenerSetRoute *v1alpha1.XListenerSet
-		if routeParentRefIsType(refRoute, gatewayXGroup, listenerSetKind) {
-			ls, ok := c.lss[namespacedName(refRouteNamespace, string(refRoute.Name))]
+		var lsEntry listenerSetListeners
+		isListenerSet := routeParentRefIsType(refRoute, gatewayXGroup, listenerSetKind)
+		if isListenerSet {
+			var ok bool
+			lsEntry, ok = c.lss[namespacedName(refRouteNamespace, string(refRoute.Name))]
 			if !ok {
 				log.Debugf("XListenerSet %s/%s not found for %s %s/%s", refRouteNamespace, refRoute.Name, c.src.rtKind, meta.Namespace, meta.Name)
 				continue
 			}
 			refGateway = v1.ParentReference{
-				Group:     ls.listenerset.Spec.ParentRef.Group,
-				Kind:      ls.listenerset.Spec.ParentRef.Kind,
-				Name:      ls.listenerset.Spec.ParentRef.Name,
-				Namespace: ls.listenerset.Spec.ParentRef.Namespace,
+				Group:     lsEntry.listenerset.Spec.ParentRef.Group,
+				Kind:      lsEntry.listenerset.Spec.ParentRef.Kind,
+				Name:      lsEntry.listenerset.Spec.ParentRef.Name,
+				Namespace: lsEntry.listenerset.Spec.ParentRef.Namespace,
 			}
 			refGatewayNamespace = strVal((*string)(refGateway.Namespace), meta.Namespace)
 			if !routeParentRefIsType(refGateway, gatewayGroup, gatewayKind) {
-				group := strVal((*string)(refGateway.Group), "")
-				kind := strVal((*string)(refGateway.Kind), "")
+				group := strVal((*string)(refGateway.Group), gatewayGroup)
+				kind := strVal((*string)(refGateway.Kind), gatewayKind)
 				log.Debugf("Unsupported parent %s/%s in XListenerSet %s/%s for %s %s/%s", group, kind, refRouteNamespace, refRoute.Name, c.src.rtKind, meta.Namespace, meta.Name)
 				continue
 			}
-			listenerSetRoute = ls.listenerset
+			listenerSetRoute = lsEntry.listenerset
 		}
 
 		// Lookup the Gateway and its Listeners.
@@ -425,14 +428,8 @@ func (c *gatewayRouteResolver) resolve(rt gatewayRoute) (map[string]endpoint.Tar
 		listeners := gw.listeners[section]
 
 		// If ListenerSet, get its Listeners for the section and merge into Gateway listeners.
-		if routeParentRefIsType(refRoute, gatewayXGroup, listenerSetKind) {
-			ls, ok := c.lss[namespacedName(refRouteNamespace, string(refRoute.Name))]
-			if !ok {
-				log.Debugf("XListenerSet %s/%s not found for %s %s/%s", refRouteNamespace, refRoute.Name, c.src.rtKind, meta.Namespace, meta.Name)
-				continue
-			}
-
-			lsListeners, ok := ls.listeners[section]
+		if isListenerSet {
+			lsListeners, ok := lsEntry.listeners[section]
 			if !ok {
 				log.Debugf("XListenerSet %s/%s has no listeners for section %q for %s %s/%s", refRouteNamespace, refRoute.Name, section, c.src.rtKind, meta.Namespace, meta.Name)
 				continue
@@ -618,7 +615,7 @@ func (c *gatewayRouteResolver) lsRouteIsAllowed(ls *v1alpha1.XListenerSet, lis *
 	case v1.NamespacesFromSelector:
 		selector, err := metav1.LabelSelectorAsSelector(allow.Namespaces.Selector)
 		if err != nil {
-			log.Debugf("Gateway %s/%s section %q has invalid namespace selector: %v", ls.Namespace, ls.Name, lis.Name, err)
+			log.Debugf("XListenerSet %s/%s section %q has invalid namespace selector: %v", ls.Namespace, ls.Name, lis.Name, err)
 			return false
 		}
 		// Get namespace.
@@ -631,7 +628,7 @@ func (c *gatewayRouteResolver) lsRouteIsAllowed(ls *v1alpha1.XListenerSet, lis *
 			return false
 		}
 	default:
-		log.Debugf("Gateway %s/%s section %q has unknown namespace from %q", ls.Namespace, ls.Name, lis.Name, from)
+		log.Debugf("XListenerSet %s/%s section %q has unknown namespace from %q", ls.Namespace, ls.Name, lis.Name, from)
 		return false
 	}
 
